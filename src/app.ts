@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 import { verifyFirebaseConnection } from './config/firebase.config';
 import testRoutes from './routes/test.routes';
 import healthRoutes from './routes/health.routes';
+import authRoutes from './routes/auth.routes';
 
 // Load environment variables
 config();
@@ -16,6 +17,7 @@ app.use(express.json());
 // Routes
 app.use('/api', testRoutes);
 app.use('/health', healthRoutes);
+app.use('/auth', authRoutes);
 
 // Verify Firebase connection and start server
 const startServer = async () => {

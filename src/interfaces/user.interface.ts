@@ -1,9 +1,10 @@
 export interface IUser {
-    id: string;
+    id?: string;
     email: string;
+    password: string;
     name: string;
-    createdAt: Date;
-    updatedAt: Date;
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
 export interface IUserToken {
@@ -28,7 +29,7 @@ export interface UserInterface {
     updatedAt: Date;
 }
 
-export interface UserResponseInterface {
+export interface IUserResponse {
     id: string;
     email: string;
     name: string;
