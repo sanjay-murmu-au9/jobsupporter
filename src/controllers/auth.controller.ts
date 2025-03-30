@@ -3,6 +3,7 @@ import { db } from '../config/firebase.config';
 import { IUser, IUserResponse } from '../interfaces/user.interface';
 import bcrypt from 'bcryptjs';
 import { generateToken } from '../utils/jwt.utils';
+import { Query, CollectionReference } from 'firebase-admin/firestore';
 
 export const signIn = async (req: Request, res: Response) => {
     try {
@@ -135,6 +136,80 @@ export const login = async (req: Request, res: Response) => {
         res.status(500).json({
             success: false,
             message: 'Failed to login',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};
+
+export const listUsers = async (req: Request, res: Response) => {
+    try {
+        const {
+            page = '1',
+            limit = '10',
+            search = '',
+            sortBy = 'createdAt',
+            sortOrder = 'desc'
+        } = req.query;
+
+        const pageNumber = parseInt(page as string);
+        const limitNumber = parseInt(limit as string);
+        const skip = (pageNumber - 1) * limitNumber;
+
+        // Get users collection reference
+        const usersRef = db.collection('users') as CollectionReference;
+
+        // Build query
+        let query: Query = usersRef;
+
+        // Apply search filter if provided
+        if (search) {
+            query = query.where('name', '>=', search)
+                        .where('name', '<=', search + '\uf8ff');
+        }
+
+        // Apply sorting
+        query = query.orderBy(sortBy as string, sortOrder as 'asc' | 'desc');
+
+        // Apply pagination
+        query = query.limit(limitNumber).offset(skip);
+
+        // Execute query
+        const snapshot = await query.get();
+
+        // Get total count for pagination
+        const totalSnapshot = await usersRef.count().get();
+        const total = totalSnapshot.data().count;
+
+        // Map documents to user response objects
+        const users: IUserResponse[] = snapshot.docs.map(doc => {
+            const userData = doc.data() as IUser;
+            return {
+                id: doc.id,
+                email: userData.email,
+                name: userData.name,
+                createdAt: userData.createdAt || new Date(),
+                updatedAt: userData.updatedAt || new Date()
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Users retrieved successfully',
+            data: {
+                users,
+                pagination: {
+                    total,
+                    page: pageNumber,
+                    limit: limitNumber,
+                    totalPages: Math.ceil(total / limitNumber)
+                }
+            }
+        });
+    } catch (error) {
+        console.error('List users error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve users',
             error: error instanceof Error ? error.message : 'Unknown error'
         });
     }
