@@ -32,12 +32,13 @@ export const signIn = async (req: Request, res: Response) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         // Create user object
+        const now = new Date();
         const userData: IUser = {
             email,
             password: hashedPassword,
             name,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            createdAt: now,
+            updatedAt: now
         };
 
         // Save user to Firestore
@@ -68,6 +69,72 @@ export const signIn = async (req: Request, res: Response) => {
         res.status(500).json({
             success: false,
             message: 'Failed to create user',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};
+
+export const login = async (req: Request, res: Response) => {
+    try {
+        const { email, password } = req.body;
+
+        // Validate input
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        }
+
+        // Find user by email
+        const usersRef = db.collection('users');
+        const userSnapshot = await usersRef.where('email', '==', email).get();
+
+        if (userSnapshot.empty) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
+
+        // Get user data
+        const userDoc = userSnapshot.docs[0];
+        const userData = userDoc.data() as IUser;
+
+        // Verify password
+        const isValidPassword = await bcrypt.compare(password, userData.password);
+        if (!isValidPassword) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
+
+        // Generate JWT token
+        const token = generateToken(userDoc.id);
+
+        // Create response object (excluding password)
+        const userResponse: IUserResponse = {
+            id: userDoc.id,
+            email: userData.email,
+            name: userData.name,
+            createdAt: userData.createdAt || new Date(),
+            updatedAt: userData.updatedAt || new Date()
+        };
+
+        res.status(200).json({
+            success: true,
+            message: 'Login successful',
+            data: {
+                user: userResponse,
+                token
+            }
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to login',
             error: error instanceof Error ? error.message : 'Unknown error'
         });
     }
