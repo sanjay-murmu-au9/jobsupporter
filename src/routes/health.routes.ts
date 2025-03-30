@@ -1,10 +1,19 @@
 import { Router } from 'express';
-import { HealthController } from '../controllers/health.controller';
+import {
+    checkServerHealth,
+    checkFirebaseHealth,
+    checkRedisHealth,
+    checkAllHealth
+} from '../controllers/health.controller';
 
 const router = Router();
-const healthController = new HealthController();
 
-router.get('/', healthController.checkHealth.bind(healthController));
-router.get('/ping', (_, res) => res.status(200).json({ status: 'OK' }));
+// Individual health check endpoints
+router.get('/server', checkServerHealth);
+router.get('/firebase', checkFirebaseHealth);
+router.get('/redis', checkRedisHealth);
+
+// Combined health check endpoint
+router.get('/', checkAllHealth);
 
 export default router; 

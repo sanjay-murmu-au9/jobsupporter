@@ -18,4 +18,20 @@ export interface IDecodedToken {
     name: string;
     iat: number;
     exp: number;
-} 
+}
+
+export interface UserInterface {
+    id: string;
+    email: string;
+    name: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface UserResponseInterface {
+    id: string;
+    email: string;
+    name: string;
+    createdAt: Date;
+    updatedAt: Date;
+}

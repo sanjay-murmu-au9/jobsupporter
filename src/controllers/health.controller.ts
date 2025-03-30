@@ -1,86 +1,109 @@
 import { Request, Response } from 'express';
-import { redisClient } from '../config/redis.config';
-import { firebaseAdmin } from '../config/firebase.config';
+import { db } from '../config/firebase.config';
+import Redis from 'ioredis';
+import { config } from 'dotenv';
 
-interface ServiceHealth {
-    status: string;
-    error?: string;
-    connected?: boolean;
-}
+config();
 
-interface HealthCheck {
-    uptime: number;
-    timestamp: number;
-    status: string;
-    services: {
-        redis: ServiceHealth;
-        firebase: ServiceHealth;
-    };
-}
+const redis = new Redis({
+    host: process.env.REDIS_HOST,
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+    password: process.env.REDIS_PASSWORD,
+});
 
-export class HealthController {
-    async checkHealth(req: Request, res: Response) {
-        const health: HealthCheck = {
-            uptime: process.uptime(),
-            timestamp: Date.now(),
-            status: 'OK',
-            services: {
-                redis: { status: 'unknown' },
-                firebase: { status: 'unknown' }
-            }
+export const checkServerHealth = async (req: Request, res: Response) => {
+    try {
+        res.status(200).json({
+            status: 'success',
+            message: 'Server is healthy',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: 'Server health check failed',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};
+
+export const checkFirebaseHealth = async (req: Request, res: Response) => {
+    try {
+        // Test Firestore connection
+        await db.listCollections();
+        
+        res.status(200).json({
+            status: 'success',
+            message: 'Firebase connection is healthy',
+            service: 'Firestore',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: 'Firebase health check failed',
+            service: 'Firestore',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};
+
+export const checkRedisHealth = async (req: Request, res: Response) => {
+    try {
+        // Test Redis connection
+        await redis.ping();
+        
+        res.status(200).json({
+            status: 'success',
+            message: 'Redis connection is healthy',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: 'Redis health check failed',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};
+
+export const checkAllHealth = async (req: Request, res: Response) => {
+    try {
+        const healthChecks = {
+            server: true,
+            firebase: false,
+            redis: false
         };
 
+        // Check Firebase
         try {
-            // Check Redis connection
-            const redisStatus = await redisClient.ping();
-            health.services.redis = {
-                status: redisStatus === 'PONG' ? 'healthy' : 'unhealthy',
-                connected: redisClient.isOpen
-            };
+            await db.listCollections();
+            healthChecks.firebase = true;
         } catch (error) {
-            health.services.redis = {
-                status: 'unhealthy',
-                error: error instanceof Error ? error.message : 'Redis connection failed',
-                connected: false
-            };
+            console.error('Firebase health check failed:', error);
         }
 
+        // Check Redis
         try {
-            // Check Firebase connection
-            if (!firebaseAdmin) {
-                throw new Error('Firebase Admin not initialized');
-            }
-
-            // Try to get the project ID as a simple test
-            const projectId = firebaseAdmin.options.projectId;
-            if (!projectId) {
-                throw new Error('Firebase project ID not found');
-            }
-
-            health.services.firebase = {
-                status: 'healthy',
-                connected: true
-            };
+            await redis.ping();
+            healthChecks.redis = true;
         } catch (error) {
-            health.services.firebase = {
-                status: 'unhealthy',
-                error: error instanceof Error ? error.message : 'Firebase connection failed',
-                connected: false
-            };
+            console.error('Redis health check failed:', error);
         }
 
-        // Overall health status
-        if (health.services.redis.status === 'unhealthy' && 
-            health.services.firebase.status === 'unhealthy') {
-            health.status = 'Unhealthy';
-        } else if (health.services.redis.status === 'unhealthy' || 
-                   health.services.firebase.status === 'unhealthy') {
-            health.status = 'Degraded';
-        }
+        const allHealthy = Object.values(healthChecks).every(check => check === true);
 
-        const statusCode = health.status === 'OK' ? 200 : 
-                          health.status === 'Degraded' ? 200 : 503;
-
-        return res.status(statusCode).json(health);
+        res.status(allHealthy ? 200 : 503).json({
+            status: allHealthy ? 'success' : 'partial',
+            message: allHealthy ? 'All services are healthy' : 'Some services are unhealthy',
+            services: healthChecks,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: 'Health check failed',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
-} 
+}; 
