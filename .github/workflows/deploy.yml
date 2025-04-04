@@ -29,19 +29,26 @@ jobs:
           zip -r deploy.zip . -x "node_modules/*" ".git/*" "dist/*"
 
       - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SSH_HOST: ${{ secrets.EC2_HOST }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
-          chmod 600 ~/.ssh/ec2_key.pem
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy to EC2
+        env:
+          SSH_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          scp -i ~/.ssh/ec2_key.pem -o StrictHostKeyChecking=no deploy.zip ubuntu@${{ secrets.EC2_HOST }}:~/jobsupport/
+          scp -i ~/.ssh/id_rsa deploy.zip ubuntu@$SSH_HOST:~/jobsupport/
 
       - name: Execute deployment commands
+        env:
+          SSH_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          ssh -i ~/.ssh/ec2_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
+          ssh -i ~/.ssh/id_rsa ubuntu@$SSH_HOST '
             cd ~/jobsupport && \
             unzip -o deploy.zip && \
             npm ci --production && \
