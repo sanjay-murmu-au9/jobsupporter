@@ -28,16 +28,42 @@ jobs:
         run: |
           zip -r deploy.zip . -x "node_modules/*" ".git/*" "dist/*"
 
+      - name: Debug SSH Setup
+        run: |
+          echo "Setting up SSH..."
+          mkdir -p ~/.ssh
+          echo "Checking EC2_HOST value..."
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            echo "Error: EC2_HOST is empty"
+            exit 1
+          fi
+          echo "EC2_HOST is set and not empty"
+          
+          echo "Writing SSH key..."
+          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "Error: EC2_SSH_KEY is empty"
+            exit 1
+          fi
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          echo "SSH key file contents (first line only):"
+          head -n 1 ~/.ssh/id_rsa
+          
+          echo "SSH key permissions:"
+          ls -la ~/.ssh/id_rsa
+
       - name: Test SSH Connection
         run: |
           echo "Testing SSH connection..."
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          echo "SSH key permissions set to 600"
-          
           HOST="${{ secrets.EC2_HOST }}"
-          echo "Testing connection to $HOST..."
+          echo "Will connect to: $HOST"
+          
+          # Try to resolve the hostname
+          echo "Attempting to resolve hostname..."
+          getent hosts $HOST || echo "Failed to resolve hostname"
+          
+          echo "Attempting SSH connection..."
           ssh -o StrictHostKeyChecking=no -v ubuntu@$HOST 'echo "SSH Connection Successful"'
 
       - name: Deploy to EC2
