@@ -10,12 +10,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -28,20 +29,24 @@ jobs:
           zip -r deploy.zip . -x "node_modules/*" ".git/*" "dist/*"
 
       - name: Deploy to EC2
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "deploy.zip"
           target: "~/jobsupport"
+          strip_components: 0
+          overwrite: true
+          debug: true
 
       - name: Execute deployment commands
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          debug: true
           script: |
             cd ~/jobsupport
             unzip -o deploy.zip
