@@ -48,40 +48,31 @@ jobs:
           fi
 
       - name: Setup SSH
-        env:
-          SSH_HOST: ${{ secrets.EC2_HOST }}
-          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           echo "Setting up SSH..."
           mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          echo "Adding host key for $SSH_HOST"
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          echo "Adding host key for ${{ secrets.EC2_HOST }}"
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
           echo "Known hosts file contents:"
           cat ~/.ssh/known_hosts
           echo "SSH key file permissions:"
           ls -l ~/.ssh/id_rsa
 
       - name: Test SSH Connection
-        env:
-          SSH_HOST: ${{ secrets.EC2_HOST }}
         run: |
           echo "Testing SSH connection..."
-          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@$SSH_HOST 'echo "SSH connection successful"'
+          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} 'echo "SSH connection successful"'
 
       - name: Deploy to EC2
-        env:
-          SSH_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          echo "Deploying to $SSH_HOST"
-          scp -v -i ~/.ssh/id_rsa deploy.zip ubuntu@$SSH_HOST:~/jobsupport/
+          echo "Deploying to ${{ secrets.EC2_HOST }}"
+          scp -v -i ~/.ssh/id_rsa deploy.zip ubuntu@${{ secrets.EC2_HOST }}:~/jobsupport/
 
       - name: Execute deployment commands
-        env:
-          SSH_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          ssh -v -i ~/.ssh/id_rsa ubuntu@$SSH_HOST '
+          ssh -v -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
             cd ~/jobsupport && \
             unzip -o deploy.zip && \
             npm ci --production && \
