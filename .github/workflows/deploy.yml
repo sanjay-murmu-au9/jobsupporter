@@ -28,53 +28,29 @@ jobs:
         run: |
           zip -r deploy.zip . -x "node_modules/*" ".git/*" "dist/*"
 
-      - name: Debug - Check secrets
+      - name: Test SSH Connection
         run: |
-          echo "Checking EC2_HOST..."
-          if [ -n "${{ secrets.EC2_HOST }}" ]; then
-            echo "EC2_HOST is set to: ${{ secrets.EC2_HOST }}"
-          else
-            echo "EC2_HOST is not set"
-            exit 1
-          fi
-          
-          echo "Checking EC2_SSH_KEY..."
-          if [ -n "${{ secrets.EC2_SSH_KEY }}" ]; then
-            echo "EC2_SSH_KEY is set (length: ${#EC2_SSH_KEY})"
-            echo "First line of key: $(echo "${{ secrets.EC2_SSH_KEY }}" | head -n 1)"
-          else
-            echo "EC2_SSH_KEY is not set"
-            exit 1
-          fi
-
-      - name: Setup SSH
-        run: |
-          echo "Setting up SSH..."
+          echo "Testing SSH connection..."
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          echo "Adding host key for ${{ secrets.EC2_HOST }}"
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
-          echo "Known hosts file contents:"
-          cat ~/.ssh/known_hosts
-          echo "SSH key file permissions:"
-          ls -l ~/.ssh/id_rsa
-          echo "SSH key file contents (first line):"
-          head -n 1 ~/.ssh/id_rsa
-          echo "Testing SSH key format..."
-          ssh-keygen -l -f ~/.ssh/id_rsa || echo "SSH key format is invalid"
+          echo "SSH key permissions set to 600"
+          
+          echo "Testing connection to ${{ secrets.EC2_HOST }}..."
+          ssh -o StrictHostKeyChecking=no -v ubuntu@${{ secrets.EC2_HOST }} 'echo "SSH Connection Successful"'
 
       - name: Deploy to EC2
+        if: success()
         run: |
-          echo "Deploying to ${{ secrets.EC2_HOST }}"
-          scp -v -i ~/.ssh/id_rsa deploy.zip ubuntu@${{ secrets.EC2_HOST }}:~/jobsupport/
-
-      - name: Execute deployment commands
-        run: |
-          ssh -v -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
+          echo "Deploying to EC2..."
+          scp -o StrictHostKeyChecking=no -v deploy.zip ubuntu@${{ secrets.EC2_HOST }}:~/jobsupport/
+          
+          echo "Running deployment commands..."
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
             cd ~/jobsupport && \
             unzip -o deploy.zip && \
             npm ci --production && \
             pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js && \
-            rm deploy.zip
+            rm deploy.zip && \
+            echo "Deployment completed successfully!"
           ' 
