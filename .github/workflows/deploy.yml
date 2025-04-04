@@ -28,28 +28,26 @@ jobs:
         run: |
           zip -r deploy.zip . -x "node_modules/*" ".git/*" "dist/*"
 
-      - name: Deploy to EC2
-        uses: appleboy/scp-action@v0.1.7
+      - name: Install SSH key
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "deploy.zip"
-          target: "~/jobsupport"
-          strip_components: 0
-          overwrite: true
-          debug: true
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Add host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        run: |
+          scp -o StrictHostKeyChecking=no deploy.zip ubuntu@${{ secrets.EC2_HOST }}:~/jobsupport/
 
       - name: Execute deployment commands
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          debug: true
-          script: |
-            cd ~/jobsupport
-            unzip -o deploy.zip
-            npm ci --production
-            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
-            rm deploy.zip 
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
+            cd ~/jobsupport && \
+            unzip -o deploy.zip && \
+            npm ci --production && \
+            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js && \
+            rm deploy.zip
+          ' 
