@@ -28,20 +28,36 @@ jobs:
         run: |
           zip -r deploy.zip . -x "node_modules/*" ".git/*" "dist/*"
 
+      - name: Debug - Check if secrets are set
+        run: |
+          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "EC2_SSH_KEY is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            echo "EC2_HOST is not set"
+            exit 1
+          fi
+          echo "EC2_HOST is set to: ${{ secrets.EC2_HOST }}"
+          echo "EC2_SSH_KEY length: ${#EC2_SSH_KEY}"
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          echo "Adding host key for ${{ secrets.EC2_HOST }}"
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          cat ~/.ssh/known_hosts
 
       - name: Deploy to EC2
         run: |
-          scp -i ~/.ssh/id_rsa deploy.zip ubuntu@${{ secrets.EC2_HOST }}:~/jobsupport/
+          echo "Deploying to ${{ secrets.EC2_HOST }}"
+          scp -v -i ~/.ssh/id_rsa deploy.zip ubuntu@${{ secrets.EC2_HOST }}:~/jobsupport/
 
       - name: Execute deployment commands
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
+          ssh -v -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
             cd ~/jobsupport && \
             unzip -o deploy.zip && \
             npm ci --production && \
