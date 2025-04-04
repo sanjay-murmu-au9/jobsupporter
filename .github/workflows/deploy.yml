@@ -1,5 +1,6 @@
 name: Deploy to EC2
 
+# Deployment workflow with updated SSH key configuration
 on:
   push:
     branches: [ dev ]
