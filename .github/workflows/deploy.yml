@@ -28,55 +28,42 @@ jobs:
         run: |
           zip -r deploy.zip . -x "node_modules/*" ".git/*" "dist/*"
 
-      - name: Debug - Check secrets and SSH setup
-        run: |
-          echo "Checking EC2_HOST..."
-          if [ -n "${{ secrets.EC2_HOST }}" ]; then
-            echo "EC2_HOST is set to: ${{ secrets.EC2_HOST }}"
-          else
-            echo "EC2_HOST is not set"
-            exit 1
-          fi
-          
-          echo "Checking EC2_SSH_KEY..."
-          if [ -n "${{ secrets.EC2_SSH_KEY }}" ]; then
-            echo "EC2_SSH_KEY is set (length: ${#EC2_SSH_KEY})"
-            echo "First line of key: $(echo "${{ secrets.EC2_SSH_KEY }}" | head -n 1)"
-          else
-            echo "EC2_SSH_KEY is not set"
-            exit 1
-          fi
-
-      - name: Setup SSH
-        run: |
-          echo "Setting up SSH..."
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          echo "Adding host key for ${{ secrets.EC2_HOST }}"
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
-          echo "Known hosts file contents:"
-          cat ~/.ssh/known_hosts
-          echo "SSH key file permissions:"
-          ls -l ~/.ssh/id_rsa
-          echo "SSH key file contents (first line):"
-          head -n 1 ~/.ssh/id_rsa
-          echo "Testing SSH key format..."
-          ssh-keygen -l -f ~/.ssh/id_rsa || echo "SSH key format is invalid"
-          echo "Testing SSH connection with verbose output..."
-          ssh -vvv -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} 'echo "SSH connection successful"'
-
       - name: Deploy to EC2
-        run: |
-          echo "Deploying to ${{ secrets.EC2_HOST }}"
-          scp -v -i ~/.ssh/id_rsa deploy.zip ubuntu@${{ secrets.EC2_HOST }}:~/jobsupport/
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/jobsupport
+            rm -rf deploy.zip
+            echo "Current directory: $(pwd)"
+            echo "Directory contents before:"
+            ls -la
+
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "deploy.zip"
+          target: "~/jobsupport"
 
       - name: Execute deployment commands
-        run: |
-          ssh -v -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
-            cd ~/jobsupport && \
-            unzip -o deploy.zip && \
-            npm ci --production && \
-            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js && \
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/jobsupport
+            echo "Unzipping deployment package..."
+            unzip -o deploy.zip
+            echo "Installing dependencies..."
+            npm ci --production
+            echo "Starting/Restarting PM2..."
+            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+            echo "Cleaning up..."
             rm deploy.zip
-          ' 
+            echo "Deployment complete!" 
