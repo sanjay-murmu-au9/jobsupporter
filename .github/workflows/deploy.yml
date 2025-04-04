@@ -51,7 +51,7 @@ jobs:
         run: |
           echo "Setting up SSH..."
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           echo "Adding host key for ${{ secrets.EC2_HOST }}"
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
@@ -63,11 +63,8 @@ jobs:
           head -n 1 ~/.ssh/id_rsa
           echo "Testing SSH key format..."
           ssh-keygen -l -f ~/.ssh/id_rsa || echo "SSH key format is invalid"
-
-      - name: Test SSH Connection
-        run: |
-          echo "Testing SSH connection..."
-          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} 'echo "SSH connection successful"'
+          echo "Testing SSH connection with verbose output..."
+          ssh -vvv -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} 'echo "SSH connection successful"'
 
       - name: Deploy to EC2
         run: |
