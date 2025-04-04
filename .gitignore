@@ -33,4 +33,13 @@ npm-debug.log*
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# TypeScript
+*.js
+!jest.config.js
+!ecosystem.config.js
+
+# Firebase
+firebase-debug.log
+firebase-debug.*.log 

@@ -1,21 +1,22 @@
 import jwt from 'jsonwebtoken';
-import { config } from 'dotenv';
+import { JWT_SECRET } from '../config/env.config';
 
-config();
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+interface JWTPayload {
+  userId: string;
+  iat?: number;
+  exp?: number;
+}
 
 export const generateToken = (userId: string): string => {
-    return jwt.sign({ userId }, JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN
-    });
+  const payload: JWTPayload = {
+    userId,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+  };
+
+  return jwt.sign(payload, JWT_SECRET as jwt.Secret);
 };
 
-export const verifyToken = (token: string): { userId: string } => {
-    try {
-        return jwt.verify(token, JWT_SECRET) as { userId: string };
-    } catch (error) {
-        throw new Error('Invalid token');
-    }
+export const verifyToken = (token: string): jwt.JwtPayload => {
+  return jwt.verify(token, JWT_SECRET as jwt.Secret) as jwt.JwtPayload;
 }; 
