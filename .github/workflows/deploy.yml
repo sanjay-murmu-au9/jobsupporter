@@ -33,6 +33,8 @@ jobs:
         run: |
           echo "Setting up SSH..."
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
           echo "Checking EC2_HOST value..."
           if [ -z "${{ secrets.EC2_HOST }}" ]; then
             echo "Error: EC2_HOST is empty"
@@ -45,7 +47,9 @@ jobs:
             echo "Error: EC2_SSH_KEY is empty"
             exit 1
           fi
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          
+          # Ensure proper line endings and format
+          echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           
           echo "SSH key file contents (first line only):"
@@ -53,6 +57,9 @@ jobs:
           
           echo "SSH key permissions:"
           ls -la ~/.ssh/id_rsa
+          
+          echo "SSH key format check:"
+          ssh-keygen -l -f ~/.ssh/id_rsa || echo "Invalid key format"
 
       - name: Test SSH Connection
         run: |
