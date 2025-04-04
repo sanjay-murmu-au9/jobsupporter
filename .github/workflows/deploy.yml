@@ -28,27 +28,42 @@ jobs:
         run: |
           zip -r deploy.zip . -x "node_modules/*" ".git/*" "dist/*"
 
-      - name: Debug - Check if secrets are set
+      - name: Debug - Check secrets and SSH setup
         run: |
-          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
-            echo "EC2_SSH_KEY is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+          echo "Checking EC2_HOST..."
+          if [ -n "${{ secrets.EC2_HOST }}" ]; then
+            echo "EC2_HOST is set to: ${{ secrets.EC2_HOST }}"
+          else
             echo "EC2_HOST is not set"
             exit 1
           fi
-          echo "EC2_HOST is set to: ${{ secrets.EC2_HOST }}"
-          echo "EC2_SSH_KEY length: ${#EC2_SSH_KEY}"
+          
+          echo "Checking EC2_SSH_KEY..."
+          if [ -n "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "EC2_SSH_KEY is set (length: ${#EC2_SSH_KEY})"
+            echo "First line of key: $(echo "${{ secrets.EC2_SSH_KEY }}" | head -n 1)"
+          else
+            echo "EC2_SSH_KEY is not set"
+            exit 1
+          fi
 
       - name: Setup SSH
         run: |
+          echo "Setting up SSH..."
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           echo "Adding host key for ${{ secrets.EC2_HOST }}"
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          echo "Known hosts file contents:"
           cat ~/.ssh/known_hosts
+          echo "SSH key file permissions:"
+          ls -l ~/.ssh/id_rsa
+
+      - name: Test SSH Connection
+        run: |
+          echo "Testing SSH connection..."
+          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} 'echo "SSH connection successful"'
 
       - name: Deploy to EC2
         run: |
