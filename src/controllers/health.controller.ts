@@ -115,16 +115,12 @@ export const checkAllHealth = async (req: Request, res: Response) => {
 
 export const healthCheck = async (req: Request, res: Response) => {
   try {
-    // Check Redis connection
-    const redisStatus = await redisService.ping();
-    
     res.status(200).json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
       services: {
-        redis: redisStatus ? 'connected' : 'disconnected',
-        firebase: 'connected',
-        api: 'operational'
+        api: 'operational',
+        firebase: 'connected'
       },
       deployment: {
         environment: process.env.NODE_ENV || 'development',
