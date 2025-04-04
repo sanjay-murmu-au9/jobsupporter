@@ -4,32 +4,23 @@ npm-debug.log
 yarn-debug.log
 yarn-error.log
 
+# Build output
+dist/
+build/
+deploy/
+*.zip
+
 # Environment variables
 .env
 .env.local
 .env.*.local
+.env.new
 
-# Build output
-dist/
-build/
-
-# IDE and editor files
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Firebase credentials
-src/config/credentials/*.json
-
-# Logs
-logs
-*.log
-npm-debug.log*
 
 # OS
 .DS_Store
@@ -40,6 +31,17 @@ Thumbs.db
 !jest.config.js
 !ecosystem.config.js
 
-# Firebase
+# Logs
+logs
+*.log
 firebase-debug.log
-firebase-debug.*.log 
+firebase-debug.*.log
+
+# Deployment
+deploy.bat
+deploy.sh
+deploy.zip
+deploy.zip.zip
+
+# Firebase credentials
+src/config/credentials/*.json 

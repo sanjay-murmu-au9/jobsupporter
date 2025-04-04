@@ -1,15 +1,12 @@
 import { Request, Response } from 'express';
 import { db } from '../config/firebase.config';
-import Redis from 'ioredis';
+import { getRedisClient } from '../config/redis.config';
 import { config } from 'dotenv';
 
 config();
 
-const redis = new Redis({
-    host: process.env.REDIS_HOST,
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    password: process.env.REDIS_PASSWORD,
-});
+// Get Redis client from our service
+const redis = getRedisClient();
 
 export const checkServerHealth = async (req: Request, res: Response) => {
     try {
@@ -56,12 +53,14 @@ export const checkRedisHealth = async (req: Request, res: Response) => {
         res.status(200).json({
             status: 'success',
             message: 'Redis connection is healthy',
+            service: 'Redis',
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         res.status(500).json({
             status: 'error',
             message: 'Redis health check failed',
+            service: 'Redis',
             error: error instanceof Error ? error.message : 'Unknown error'
         });
     }
@@ -69,41 +68,30 @@ export const checkRedisHealth = async (req: Request, res: Response) => {
 
 export const checkAllHealth = async (req: Request, res: Response) => {
     try {
-        const healthChecks = {
-            server: true,
-            firebase: false,
-            redis: false
-        };
-
-        // Check Firebase
-        try {
-            await db.listCollections();
-            healthChecks.firebase = true;
-        } catch (error) {
-            console.error('Firebase health check failed:', error);
-        }
-
-        // Check Redis
-        try {
-            await redis.ping();
-            healthChecks.redis = true;
-        } catch (error) {
-            console.error('Redis health check failed:', error);
-        }
-
-        const allHealthy = Object.values(healthChecks).every(check => check === true);
-
+        // Test all connections
+        const [firebaseHealth, redisHealth] = await Promise.all([
+            db.listCollections().then(() => true).catch(() => false),
+            redis.ping().then(() => true).catch(() => false)
+        ]);
+        
+        const allHealthy = firebaseHealth && redisHealth;
+        
         res.status(allHealthy ? 200 : 503).json({
             status: allHealthy ? 'success' : 'partial',
             message: allHealthy ? 'All services are healthy' : 'Some services are unhealthy',
-            services: healthChecks,
+            services: {
+                server: true,
+                firebase: firebaseHealth,
+                redis: redisHealth
+            },
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         res.status(500).json({
             status: 'error',
             message: 'Health check failed',
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date().toISOString()
         });
     }
 }; 

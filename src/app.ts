@@ -1,6 +1,7 @@
 import express from 'express';
 import { config } from 'dotenv';
 import { verifyFirebaseConnection } from './config/firebase.config';
+import { verifyRedisConnection } from './config/redis.config';
 import testRoutes from './routes/test.routes';
 import healthRoutes from './routes/health.routes';
 import authRoutes from './routes/auth.routes';
@@ -25,6 +26,10 @@ const startServer = async () => {
         // Verify Firebase connection
         await verifyFirebaseConnection();
         console.log('Firebase connection verified successfully');
+
+        // Verify Redis connection
+        await verifyRedisConnection();
+        console.log('Redis connection verified successfully');
 
         // Start server
         app.listen(PORT, () => {
