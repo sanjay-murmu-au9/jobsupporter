@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../config/firebase.config';
 import { getRedisClient } from '../config/redis.config';
 import { config } from 'dotenv';
+import { redisService } from '../services/redis.service';
 
 config();
 
@@ -110,4 +111,32 @@ export const checkAllHealth = async (req: Request, res: Response) => {
             timestamp: new Date().toISOString()
         });
     }
+};
+
+export const healthCheck = async (req: Request, res: Response) => {
+  try {
+    // Check Redis connection
+    const redisStatus = await redisService.ping();
+    
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        redis: redisStatus ? 'connected' : 'disconnected',
+        firebase: 'connected',
+        api: 'operational'
+      },
+      deployment: {
+        environment: process.env.NODE_ENV || 'development',
+        version: process.env.npm_package_version || '1.0.0'
+      }
+    });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(500).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 }; 
